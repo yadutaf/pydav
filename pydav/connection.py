@@ -233,19 +233,28 @@ class Connection(object):
 			print "Oops, server not found!", err
 			raise
 
-	def send_copy(self, path, destination):
+	def send_copy(self, path, destination, allow_overwrite=False, maxdepth=-1):
 		""" Send a COPY request
 
 			:param path: Path (without host) to the source resource to copy
-			:type path: String
+			:type  path: String
 
 			:param destination: Path (without host) to the destination of the copied resource
-			:type destination: String
+			:type  destination: String
+						
+			:param allow_overwrite: Allow the destination resource to be overwritten if already exists. Defaults to False.
+			:type  allow_overwrite: Boolean
+			
+			:param maxdepth: Specify the maximum depth for the copy. Infinity(-1) by default.
+			:type  maxdepth: Integer
 
 		"""
 		try:
+			headers = {}
 			full_destination = httplib2.urlparse.urljoin(self.host, destination)
-			headers = {'Destination': full_destination}
+			headers['Destination'] = full_destination
+			if not allow_overwrite : headers['Overwrite'] = "F"
+			if maxdepth > -1       : headers['Depth']     = "maxdepth"
 			resp, content = self._send_request('COPY', path, headers=headers)
 			return resp, content
 		except httplib2.ServerNotFoundError:
@@ -380,18 +389,26 @@ class Client(object):
 		resp, contents = self.connection.send_put(path, data)
 		return resp, contents
 
-	def copyResource(self, resource_path, resource_destination):
+	def cp(self, resource_path, resource_destination, allow_overwrite=False, maxdepth=-1):
 		""" Copy a resource from point a to point b on the server
 
 			:param resource_path: Path to the required resource
-			:type resource_path: String
+			:type  resource_path: String
 
 			:param resource_destination: Destination of the copied resource
-			:type resource_destination: String
+			:type  resource_destination: String
+			
+			:param allow_overwrite: Allow the destination resource to be overwritten if already exists. Defaults to False.
+			:type  allow_overwrite: Boolean
+			
+			:param maxdepth: Specify the maximum depth for the copy. Infinity(-1) by default.
+			:type  maxdepth: Integer
 
 		"""
 		resp, contents = self.connection.send_copy(resource_path,
-											  resource_destination)
+		                                           resource_destination,
+		                                           allow_overwrite,
+		                                           maxdepth)
 		return resp, contents
 
 	def deleteResource(self, path):
