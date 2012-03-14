@@ -56,6 +56,10 @@ class Connection(object):
 
 	def send_delete(self, path):
 		""" Send a DELETE request
+			
+			This request may apply to both a file or a collection (folder).
+			In case of a folder, the whole content will be deleted recursively.
+			If any resource(file) of the collection can not be deleted, none will !
 
 			:param path: The path (without host) to the resource to delete
 			:type path: String
@@ -229,19 +233,6 @@ class Connection(object):
 			print "Oops, server not found!", err
 			raise
 
-	def send_rmcol(self, path):
-		""" Send an RMCOL request
-
-			:param path: Path (without host) to the collection to remove
-			:type path: String
-
-		"""
-		try:
-			resp, content = self._send_request('DELETE', path)
-			return resp, content
-		except httplib2.ServerNotFoundError:
-			raise
-
 	def send_copy(self, path, destination):
 		""" Send a COPY request
 
@@ -404,7 +395,9 @@ class Client(object):
 		return resp, contents
 
 	def deleteResource(self, path):
-		""" Delete resource
+		""" Delete resource. The resource may either be a collection (folder)
+			or a file. If this is a folder, all content will be deleted recursively.
+			In case at least one of the subresource may not be deleted, none will.
 
 			:param path: URI of the resource
 			:type path: String
@@ -412,6 +405,22 @@ class Client(object):
 		"""
 		resp, contents = self.connection.send_delete(path)
 		return resp, contents
+
+	def rm(self,  path):
+		""" Convenient Alias for deleteResource. Beware that if the target file is indeed a directory, it will be recursively deleted
+			
+			param path: URI of the resource
+			:type path: String
+		"""
+		return self.deleteResource(path)
+	
+	def rmdir(self,  path):
+		""" Convenient Alias for deleteResource. Removes *all* content recursively !
+		
+			param path: URI of the resource
+			:type path: String
+		"""
+		return self.deleteResource(path)
 
 # ------------------------------------------- NOT YET IMPLEMENTED -------------------------------- #
 	def getLock(self, path):
