@@ -136,6 +136,28 @@ class Connection(object):
 		except httplib2.ServerNotFoundError:
 			raise
 
+	def send_proppatch(self, path, body='', extra_headers={}):
+		""" Send a PROPPATCH request
+
+			:param path: Path (without host) to the resource from which the properties are required
+			:type path: String
+
+			:param body: The body of the request
+			:type body: String
+
+			:param extra_headers: Additional headers for the request may be added here
+			:type extra_headers: Dict
+
+		"""
+		try:
+			headers = {'Depth':'1'}
+			headers.update(extra_headers)
+			resp, content = self._send_request('PROPPATCH', path, body=body,
+											   headers=headers)
+			return resp, content
+		except httplib2.ServerNotFoundError:
+			raise
+
 	def send_lock(self, path):
 		""" Send a LOCK request
 
