@@ -114,7 +114,7 @@ class Connection(object):
 		except httplib2.ServerNotFoundError:
 			raise
 
-	def send_propfind(self, path, body='', extra_headers={}):
+	def send_propfind(self, path, properties=[], extra_headers={}):
 		""" Send a PROPFIND request
 
 			:param path: Path (without host) to the resource from which the properties are required
@@ -127,6 +127,19 @@ class Connection(object):
 			:type extra_headers: Dict
 
 		"""
+		
+		# Build body
+		body = '<?xml version="1.0" encoding="utf-8" ?>'
+		body += '<D:propfind xmlns:D="DAV:">'
+		if properties:
+			body += '<D:prop>'
+			for prop in properties:
+				body += '<D:' + prop + '/>'
+			body += '</D:prop>'
+		else:
+			body += '<D:allprop/>'
+		body += '</D:propfind>'
+		
 		try:
 			headers = {'Depth':'1'}
 			headers.update(extra_headers)
@@ -303,23 +316,12 @@ class Client(object):
 			Returns a list of resource objects.
 
 		"""
-		# Build body
-		body = '<?xml version="1.0" encoding="utf-8" ?>'
-		body += '<D:propfind xmlns:D="DAV:">'
-		if properties:
-			body += '<D:prop>'
-			for prop in properties:
-				body += '<D:' + prop + '/>'
-			body += '</D:prop>'
-		else:
-			body += '<D:allprop/>'
-		body += '</D:propfind>'
 		
 		path = urllib.quote(path)
 		if path and path[-1] != '/':
 			path += '/'
 
-		resp, prop_xml = self.connection.send_propfind(path, body=body)
+		resp, prop_xml = self.connection.send_propfind(path, properties=properties)
 		if resp.status >= 200 and resp.status < 300:
 			#parser = python_webdav.parse.Parser()
 			parser = python_webdav.parse.LxmlParser()
