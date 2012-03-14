@@ -3,7 +3,7 @@
 import httplib2
 import parse
 import urllib
-import python_webdav.parse
+from pydav import answer
 
 class Connection(object):
 	""" Connection object
@@ -134,7 +134,7 @@ class Connection(object):
 		except httplib2.ServerNotFoundError:
 			raise
 
-	def send_propfind(self, path, properties=[], extra_headers={}):
+	def send_propfind(self, path, properties=[], maxdepth=1, extra_headers={}):
 		""" Send a PROPFIND request
 
 			:param path: Path (without host) to the resource from which the properties are required
@@ -147,6 +147,8 @@ class Connection(object):
 			:type extra_headers: Dict
 
 		"""
+		
+		print "max depth = ",maxdepth
 		
 		# Build body
 		body = '<?xml version="1.0" encoding="utf-8" ?>'
@@ -161,7 +163,9 @@ class Connection(object):
 		body += '</D:propfind>'
 		
 		try:
-			headers = {'Depth':'1'}
+			headers = {}
+			if maxdepth > -1: 
+				headers['Depth'] = str(maxdepth)
 			headers.update(extra_headers)
 			resp, content = self._send_request('PROPFIND', path, body=body,
 											   headers=headers)
@@ -270,7 +274,7 @@ class Connection(object):
 			full_destination = httplib2.urlparse.urljoin(self.host, destination)
 			headers['Destination'] = full_destination
 			if not allow_overwrite : headers['Overwrite'] = "F"
-			if maxdepth > -1       : headers['Depth']     = "maxdepth"
+			if maxdepth > -1       : headers['Depth']     = str(maxdepth)
 			resp, content = self._send_request('COPY', path, headers=headers)
 			return resp, content
 		except httplib2.ServerNotFoundError:
@@ -308,23 +312,6 @@ class LockToken(object):
 		self.token = lock_token
 
 
-class Property(object):
-	""" Property object for storing information about WebDAV properties
-	"""
-
-	def set_property(self, property_name, property_value=None):
-		""" Set property names
-
-			:param property_name: Name of the property
-			:type property_name: String
-
-			:param property_value: Value of the named property
-			:type property_value: String
-
-		"""
-		self.__dict__[property_name] = property_value
-
-
 class Client(object):
 	""" This class is for interacting with webdav. Its main purpose is to be
 		used by the client.py module but may also be used by developers
@@ -339,10 +326,13 @@ class Client(object):
 		"""
 		self.connection = Connection(settings)
 	
+	def test(self, path):
+		return self.ls(path, -1)
+	
 	def mkdir(self, path):
 		self.connection.send_mkcol(urllib.quote(path))
 
-	def getProperties(self, path, properties=[]):
+	def getProperties(self, path, maxdepth=0, properties=[]):
 		""" Get a list of property objects
 
 			:param path: the path of the resource / collection minus the host section
@@ -350,6 +340,9 @@ class Client(object):
 
 			:param properties: list of property names to get. If left empty, will get all
 			:type properties: List
+			
+			:param maxdepth: Specify the maximum depth for the copy. 1 by default.
+			:type  maxdepth: Integer
 
 			Returns a list of resource objects.
 
@@ -359,13 +352,9 @@ class Client(object):
 		if path and path[-1] != '/':
 			path += '/'
 
-		resp, prop_xml = self.connection.send_propfind(path, properties=properties)
+		resp, prop_xml = self.connection.send_propfind(path, properties, maxdepth)
 		if resp.status >= 200 and resp.status < 300:
-			#parser = python_webdav.parse.Parser()
-			parser = python_webdav.parse.LxmlParser()
-			parser.parse(prop_xml)
-			properties = parser.response_objects
-			return properties
+			return answer.Answer(prop_xml)
 		else:
 			raise httplib2.HttpLib2Error([resp, prop_xml])
 
@@ -381,10 +370,9 @@ class Client(object):
 			Returns the property value as a string
 
 		"""
-		property_obj = self.get_properties(self.connection, path,
+		property_obj = self.get_properties(self.connection, path, 1
 										   [property_name])[0]
-		requested_property_value = getattr(property_obj, property_name, '')
-		return requested_property_value
+		return property_obj[property_name]
 
 	def getFile(self, path, local_file_name,
 				 extra_headers={}):
@@ -467,6 +455,24 @@ class Client(object):
 		                                           allow_overwrite)
 		return resp, contents
 
+	def ls(self, path, maxdepth=1):
+		""" List content of a collection. May do it recursively if supported on the server side (not SABRE for instance ...)
+			This is a helper function in top of getProperties. It maps all set of
+			properties to the corresponding "href"
+
+			:param path: Base path
+			:type  path: String
+			
+			:param maxdepth: Specify the maximum depth for the copy. 1 by default.
+			:type  maxdepth: Integer
+
+		"""
+		props = self.getProperties(path, maxdepth).props
+		files = {}
+		for prop in props:
+			files[prop.href] = prop
+		return files
+	
 	def deleteResource(self, path):
 		""" Delete resource. The resource may either be a collection (folder)
 			or a file. If this is a folder, all content will be deleted recursively.
