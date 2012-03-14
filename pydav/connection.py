@@ -304,7 +304,7 @@ class Client(object):
 	def mkdir(self, path):
 		self.connection.send_mkcol(urllib.quote(path))
 
-	def get_properties(self, path, properties=[]):
+	def getProperties(self, path, properties=[]):
 		""" Get a list of property objects
 
 			:param path: the path of the resource / collection minus the host section
@@ -331,7 +331,7 @@ class Client(object):
 		else:
 			raise httplib2.HttpLib2Error([resp, prop_xml])
 
-	def get_property(self, path, property_name):
+	def getProperty(self, path, property_name):
 		""" Get a property object
 
 			:param path: the path of the resource / collection minus the host section
@@ -348,7 +348,7 @@ class Client(object):
 		requested_property_value = getattr(property_obj, property_name, '')
 		return requested_property_value
 
-	def get_file(self, path, local_file_name,
+	def getFile(self, path, local_file_name,
 				 extra_headers={}):
 		""" Download file
 
@@ -367,7 +367,7 @@ class Client(object):
 		file_fd.write(data)
 		file_fd.close()
 
-	def send_file(self, path, local_file_path,
+	def sendFile(self, path, local_file_path,
 				  extra_headers={}):
 		""" Send file
 
@@ -389,7 +389,7 @@ class Client(object):
 		resp, contents = self.connection.send_put(path, data)
 		return resp, contents
 
-	def copy_resource(self, resource_path, resource_destination):
+	def copyResource(self, resource_path, resource_destination):
 		""" Copy a resource from point a to point b on the server
 
 			:param resource_path: Path to the required resource
@@ -403,7 +403,7 @@ class Client(object):
 											  resource_destination)
 		return resp, contents
 
-	def delete_resource(self, path):
+	def deleteResource(self, path):
 		""" Delete resource
 
 			:param path: URI of the resource
@@ -414,7 +414,7 @@ class Client(object):
 		return resp, contents
 
 # ------------------------------------------- NOT YET IMPLEMENTED -------------------------------- #
-	def get_lock(self, path):
+	def getLock(self, path):
 		""" Get a file lock
 
 			:param path: the path of the resource / collection minus the host section
@@ -425,7 +425,7 @@ class Client(object):
 		self.connection.locks[path] = LockToken(lock)
 		return lock
 
-	def release_lock(self, path):
+	def releaseLock(self, path):
 		""" Release a file lock
 
 			:param path: the path of the resource / collection minus the host section
