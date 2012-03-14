@@ -71,6 +71,22 @@ class Connection(object):
 		except httplib2.ServerNotFoundError, err:
 			raise
 
+	def send_head(self, path, headers={}):
+		""" Send a HEAD request.
+
+			:param path: The path (without host) to the resource to get
+			:type path: String
+
+			:param headers: Additional headers for the request should be added here
+			:type headers: Dict
+
+		"""
+		try:
+			resp, content = self._send_request('HEAD', path, headers=headers)
+			return resp
+		except httplib2.ServerNotFoundError:
+			raise
+
 	def send_get(self, path, headers={}, callback=False):
 		""" Send a GET request
 			NOTE: callback is not yet implimented. It's purpose is to allow
