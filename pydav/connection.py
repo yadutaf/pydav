@@ -259,6 +259,28 @@ class Connection(object):
 			return resp, content
 		except httplib2.ServerNotFoundError:
 			raise
+			
+	def send_move(self, path, destination, allow_overwrite=False):
+		""" Send a MOVE request
+
+			:param path: Path (without host) to the source resource to copy
+			:type  path: String
+
+			:param destination: Path (without host) to the destination of the copied resource
+			:type  destination: String
+						
+			:param allow_overwrite: Allow the destination resource to be overwritten if already exists. Defaults to False.
+			:type  allow_overwrite: Boolean
+		"""
+		try:
+			headers = {}
+			full_destination = httplib2.urlparse.urljoin(self.host, destination)
+			headers['Destination'] = full_destination
+			if not allow_overwrite : headers['Overwrite'] = "F"
+			resp, content = self._send_request('MOVE', path, headers=headers)
+			return resp, content
+		except httplib2.ServerNotFoundError:
+			raise
 
 class LockToken(object):
 	""" LockToken object. This is an object that contains information about a
@@ -409,6 +431,24 @@ class Client(object):
 		                                           resource_destination,
 		                                           allow_overwrite,
 		                                           maxdepth)
+		return resp, contents
+	
+	def mv(self, resource_path, resource_destination, allow_overwrite=False):
+		""" Moves a resource from point a to point b on the server
+
+			:param resource_path: Path to the required resource
+			:type  resource_path: String
+
+			:param resource_destination: Destination of the copied resource
+			:type  resource_destination: String
+			
+			:param allow_overwrite: Allow the destination resource to be overwritten if already exists. Defaults to False.
+			:type  allow_overwrite: Boolean
+
+		"""
+		resp, contents = self.connection.send_copy(resource_path,
+		                                           resource_destination,
+		                                           allow_overwrite)
 		return resp, contents
 
 	def deleteResource(self, path):
