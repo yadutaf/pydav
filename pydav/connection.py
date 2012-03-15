@@ -2,6 +2,7 @@
 """
 import httplib2
 import parse
+from answer import Answer
 
 class Connection(object):
 	""" Connection object
@@ -165,11 +166,11 @@ class Connection(object):
 			headers.update(extra_headers)
 			resp, content = self._send_request('PROPFIND', path, body=body,
 											   headers=headers)
-			return resp, content
+			return resp, Answer(content)
 		except httplib2.ServerNotFoundError:
 			raise
 
-	def send_proppatch(self, path, body='', extra_headers={}):
+	def send_proppatch(self, path, properties,extra_headers={}):
 		""" Send a PROPPATCH request
 
 			:param path: Path (without host) to the resource from which the properties are required
@@ -182,12 +183,15 @@ class Connection(object):
 			:type extra_headers: Dict
 
 		"""
+		body  = '<?xml version="1.0" encoding="utf-8" ?>'
+		body += properties.buildProppatch()
+		
 		try:
 			headers = {'Depth':'1'}
 			headers.update(extra_headers)
 			resp, content = self._send_request('PROPPATCH', path, body=body,
 											   headers=headers)
-			return resp, content
+			return resp, Answer(content)
 		except httplib2.ServerNotFoundError:
 			raise
 
@@ -246,7 +250,6 @@ class Connection(object):
 			resp, content = self._send_request('MKCOL', path)
 			return resp, content
 		except httplib2.ServerNotFoundError, err:
-			print "Oops, server not found!", err
 			raise
 
 	def send_copy(self, path, destination, allow_overwrite=False, maxdepth=-1):

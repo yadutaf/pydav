@@ -38,7 +38,7 @@ class Client(object):
 			:param maxdepth: Specify the maximum depth for the copy. 1 by default.
 			:type  maxdepth: Integer
 
-			Returns a list of resource objects.
+			Returns a list of ResourceProperties.
 
 		"""
 		
@@ -46,20 +46,20 @@ class Client(object):
 		if path and path[-1] != '/':
 			path += '/'
 
-		resp, prop_xml = self.connection.send_propfind(path, properties, maxdepth)
+		resp, prop = self.connection.send_propfind(path, properties, maxdepth)
 		if resp.status >= 200 and resp.status < 300:
-			return Answer(prop_xml)
+			return prop
 		else:
-			raise httplib2.HttpLib2Error([resp, prop_xml])
+			raise httplib2.HttpLib2Error([resp, prop])
 
 	def getProperty(self, path, property_name):
 		""" Get a property object
 
 			:param path: the path of the resource / collection minus the host section
-			:type path: String
+			:type  path: String
 
 			:param property_name: Property name
-			:type property_name: String
+			:type  property_name: String
 
 			Returns the property value as a string
 
@@ -67,7 +67,25 @@ class Client(object):
 		property_obj = self.get_properties(self.connection, path, 1
 										   [property_name])[0]
 		return property_obj[property_name]
+	
+	def setProperties(self, properties):
+		""" Set the properties of a resource
+			
+			:param properties: Property holder. It also holds the resource relatives Path on the server
+			:type  properties: ResourceProperties
 
+			Returns a list of ResourceProperties.
+
+		"""
+		
+		path = urllib.quote(properties.href)
+
+		resp, prop = self.connection.send_proppatch(path, properties)
+		if resp.status >= 200 and resp.status < 300:
+			return prop
+		else:
+			raise httplib2.HttpLib2Error([resp, prop])
+	
 	def getFile(self, path, local_file_name,
 				 extra_headers={}):
 		""" Download file
