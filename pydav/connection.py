@@ -146,8 +146,6 @@ class Connection(object):
 
 		"""
 		
-		print "max depth = ",maxdepth
-		
 		# Build body
 		body = '<?xml version="1.0" encoding="utf-8" ?>'
 		body += '<D:propfind xmlns:D="DAV:">'

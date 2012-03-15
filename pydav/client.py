@@ -4,6 +4,7 @@
 from connection import Connection
 from answer import Answer
 import urllib
+import httplib2#fimxe: this is imported only for exceptions
 
 class Client(object):
 	""" This class is for interacting with webdav. Its main purpose is to be
