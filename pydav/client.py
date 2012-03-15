@@ -100,6 +100,7 @@ class Client(object):
 			:type extra_headers: Dict
 
 		"""
+		path = urllib.quote(path)
 		resp, data = self.connection.send_get(path, headers=extra_headers)
 		file_fd = open(local_file_name, 'w')
 		file_fd.write(data)
@@ -124,6 +125,7 @@ class Client(object):
 		"""
 		local_file_fd = open(local_file_path, 'r')
 		data = local_file_fd.read()
+		path = urllib.quote(path)
 		resp, contents = self.connection.send_put(path, data)
 		return resp, contents
 

@@ -127,6 +127,7 @@ class Connection(object):
 
 		"""
 		try:
+			print "PUT to "+path
 			resp, content = self._send_request('PUT', path, body=body,
 											   headers=headers)
 			return resp, content
