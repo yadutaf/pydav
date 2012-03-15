@@ -22,19 +22,20 @@ class ResourceProperties(object):
 		* lockdiscovery
 	"""
 	
-	path  = ""
-	props = {}
-	dels  = []
-	edits = []
-	href  = ""
-	status = ""
-	
 	def __init__(self, prop):
 		""" Set up the object
 			
 			:param prop: XML response Node to be parsed as initial data
 			:type  prop: XML node
 		"""
+		#init local data
+		self.path  = ""
+		self.props = {}
+		self.dels  = []
+		self.edits = []
+		self.href  = ""
+		self.status = ""
+		
 		#init the object from the response object
 		self.href = prop.findtext(".//{DAV:}href")
 		self.status = prop.findtext(".//{DAV:}status")
@@ -86,9 +87,7 @@ class ResourceProperties(object):
 	def __setitem__(self, name, value):
 		if name == "resourcetype":     return #this is a non-sense to change the resource type !
 		if name == "getcontentlength": return #this is a non-sense to change the content length !
-		if hasattr(self, name):
-			object.__setattr__(self, name, value)
-			return
+
 		self.props[name] = value
 		if not self.edits.append(name):#record edition
 			self.edits.append(name)
@@ -96,10 +95,11 @@ class ResourceProperties(object):
 			self.dels.remove(name)
 		
 	def __delitem__(self, name):
-		if name == "displayname":     return #it is forbidden to remove this header !
+		if name == "displayname":      return #it is forbidden to remove this header !
 		if name == "creationdate":     return #it is forbidden to remove this header !
 		if name == "resourcetype":     return #it is forbidden to remove this header !
 		if name == "getcontentlength": return #this is a non-sense to change the content length !
+		
 		del self.props[name]
 		if not self.dels.append(name):#record deletion
 			self.dels.append(name)
@@ -107,13 +107,13 @@ class ResourceProperties(object):
 			self.edits.remove(name)
 		
 	def __iter__(self):
-		return props.__iter__()
+		return self.props.__iter__()
 	
 	def has_key(self, key):
 		return key in self.props
 		
 	def __len__(self):
-		return props.__len__()
+		return self.props.__len__()
 
 class Lock(object):
     """ This is an object for storing resource lock information
