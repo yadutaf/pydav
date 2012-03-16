@@ -3,6 +3,7 @@
 
 from connection import Connection
 from answer import Answer
+import os
 import urllib
 import httplib2#fimxe: this is imported only for exceptions
 
@@ -19,9 +20,10 @@ class Client(object):
 
 		"""
 		self.connection = Connection(settings)
-	
-	def test(self, path):
-		return self.ls(path, -1)
+		if('maxChunkSize' in settings):
+			self._maxChunkSize = settings['maxChunkSize']
+		else:
+			self._maxChunkSize = 100000000#100MB
 	
 	def mkdir(self, path):
 		self.connection.send_mkcol(urllib.quote(path))
@@ -105,29 +107,70 @@ class Client(object):
 		file_fd = open(local_file_name, 'w')
 		file_fd.write(data)
 		file_fd.close()
+	
+	def _sendFileChunk(self, path, local_file_path, begin, chunksize, filesize, extra_headers={}):
+		local_file_fd = open(local_file_path, 'r')
+		local_file_fd.seek(begin, os.SEEK_SET)
+		data = local_file_fd.read(chunksize)
+		
+		resp, contents = self.connection.send_put_partial(path, data, begin, filesize, headers=extra_headers)
+		return resp, contents
+	
+	def sendFileChunk(self, path, local_file_path, begin, chunksize, extra_headers={}):
+		""" Send file chunk. This method may be used to resume uploads or
+			send big files in multiple chunks.
 
-	def sendFile(self, path, local_file_path,
-				  extra_headers={}):
+			:param path: the path of the resource / collection minus the host section
+			:type  path: String
+
+			:param local_file_path: the path of the local file
+			:type  local_file_path: String
+
+			:param extra_headers: Additional headers may be added here
+			:type  extra_headers: Dict
+		"""
+		filesize = os.stat(local_file_path).st_size
+		path = urllib.quote(path)
+		return self._sendFileChunk(path, local_file_path, begin, chunksize, filesize, extra_headers)
+	
+	def sendFile(self, path, local_file_path, initial_offset=0, extra_headers={}):
 		""" Send file
 
 			:param path: the path of the resource / collection minus the host section
-			:type path: String
+			:type  path: String
 
 			:param local_file_path: the path of the local file
-			:type local_file_path: String
+			:type  local_file_path: String
+			
+			:param local_file_path: initial offset in the file. Nice to resume :)
+			:type  local_file_path: Integer
 
 			:param extra_headers: Additional headers may be added here
-			:type extra_headers: Dict
-
-			TODO: Allow the file to be read in smaller blocks and sent using
-				  the content range header (if available)
+			:type  extra_headers: Dict
 
 		"""
-		local_file_fd = open(local_file_path, 'r')
-		data = local_file_fd.read()
+		filesize = os.stat(local_file_path).st_size
 		path = urllib.quote(path)
-		resp, contents = self.connection.send_put(path, data)
-		return resp, contents
+		
+		if filesize < self._maxChunkSize and not initial_offset:#small enough file. I keep it separate as this is the safest upload method
+			local_file_fd = open(local_file_path, 'r')
+			local_file_fd.seek(initial_offset, os.SEEK_SET)
+			data = local_file_fd.read()
+			resp, contents = self.connection.send_put(path, data, headers=extra_headers)
+			return resp, contents
+		
+		#big files and resume cases
+		local_file_fd = open(local_file_path, 'r')
+		local_file_fd.seek(initial_offset, os.SEEK_SET)
+		cursor = initial_offset
+		while cursor < filesize:
+			chunksize = min(filesize-cursor, self._maxChunkSize)
+			data = local_file_fd.read(chunksize)
+			resp, contents = self._sendFileChunk(path, local_file_path, cursor, chunksize, filesize, extra_headers)
+			cursor += chunksize
+		
+		return resp, contents#of the last one :/
+						
 
 	def cp(self, resource_path, resource_destination, allow_overwrite=False, maxdepth=-1):
 		""" Copy a resource from point a to point b on the server
@@ -187,7 +230,7 @@ class Client(object):
 			files[prop.href] = prop
 		return files
 	
-	def deleteResource(self, path):
+	def rm(self, path):
 		""" Delete resource. The resource may either be a collection (folder)
 			or a file. If this is a folder, all content will be deleted recursively.
 			In case at least one of the subresource may not be deleted, none will.
@@ -198,14 +241,6 @@ class Client(object):
 		"""
 		resp, contents = self.connection.send_delete(path)
 		return resp, contents
-
-	def rm(self,  path):
-		""" Convenient Alias for deleteResource. Beware that if the target file is indeed a directory, it will be recursively deleted
-			
-			param path: URI of the resource
-			:type path: String
-		"""
-		return self.deleteResource(path)
 	
 	def rmdir(self,  path):
 		""" Convenient Alias for deleteResource. Removes *all* content recursively !

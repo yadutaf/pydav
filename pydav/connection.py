@@ -86,7 +86,7 @@ class Connection(object):
 		except httplib2.ServerNotFoundError:
 			raise
 
-	def send_get(self, path, headers={}, callback=False):
+	def send_get(self, path, headers={}):
 		""" Send a GET request
 			NOTE: callback is not yet implimented. It's purpose is to allow
 			the user to specify a callback so that when x percent of the file
@@ -99,37 +99,69 @@ class Connection(object):
 			:param headers: Additional headers for the request should be added here
 			:type headers: Dict
 
-			:param callback: Not yet implimented. This will allow a callback to be added to the method. This is for such uses as keeping track ofupload progress.
-			:type callback: Method or Function
-
 		"""
 		try:
 			resp, content = self._send_request('GET', path, headers=headers)
 			return resp, content
 		except httplib2.ServerNotFoundError:
 			raise
-
-	def send_put(self, path, body, headers={}):
-		""" This PUT request will put data files onto a webdav server.
-			However, please note that due to the way in which httplib2 sends
-			files, it is not currently possible to break a file up into chunks
-			and read it in. In other words, the whole file has to be read into
-			memory for sending. This could be problematic for large files.
+	
+	def send_put_partial(self, path, body, begin, filesize, headers={}):
+		""" This is a wrapper/helper function over send_put. It will generate 
+			the "Content-Range" headers to allow partial resource sending over
+			the network.
+			It will then pass over the control and actual sending to send_put.
+			This utility function may be used to add progess support, resume
+			file upload, bypass max_upload_size on the server size...
 
 			:param path: The path (without host) to the desired file destination
 			:type path: String
 
 			:param body: Body of the request. This is the data which to send to the destination file
-			:type body: String
+			:type  body: String
+			
+			:param begin: First byte index of the chunk. Included
+			:type  begin: Integer
+			
+			:param filesize: Whole file size
+			:type  filesize: Integer
 
 			:param headers: Additional headers for the request may be added here
-			:type headers: Dict
+			:type  headers: Dict
+
+		"""
+		
+		#compute end:
+		end = begin + len(body)
+		if end > filesize:
+			raise httplib2.ServerNotFoundError
+		
+		#compute header:
+		headers['Content-Range'] = "bytes "+str(begin)+"-"+str(end)+"/"+str(filesize)
+
+		#send chunk
+		return self.send_put(path, body, headers)
+	
+	def send_put(self, path, body, headers={}):
+		""" This PUT request will put data files onto a webdav server.
+			However, please note that due to the way in which httplib2 sends
+			files, the whole file has to be read into memory for sending. 
+			This could be problematic for large files.
+			If this is a problem, please use send_put_partial multiple times
+			instead.
+
+			:param path: The path (without host) to the desired file destination
+			:type  path: String
+
+			:param body: Body of the request. This is the data which to send to the destination file
+			:type  body: String
+
+			:param headers: Additional headers for the request may be added here
+			:type  headers: Dict
 
 		"""
 		try:
-			print "PUT to "+path
-			resp, content = self._send_request('PUT', path, body=body,
-											   headers=headers)
+			resp, content = self._send_request('PUT', path, body=body, headers=headers)
 			return resp, content
 		except httplib2.ServerNotFoundError:
 			raise

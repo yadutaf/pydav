@@ -35,6 +35,7 @@ class ResourceProperties(object):
 		self.edits = []
 		self.href  = ""
 		self.status = ""
+		self.localexists = False
 		
 		#init the object from the response object
 		self.href = prop.findtext(".//{DAV:}href")
