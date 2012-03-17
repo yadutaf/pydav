@@ -4,6 +4,11 @@ import httplib2
 import parse
 from answer import Answer
 
+#TODO
+# * detection of the server type
+# * detection of the server methods
+# * support for (upcomming :) ) SABREdav PATCH method
+
 class Connection(object):
 	""" Connection object
 	"""
@@ -132,7 +137,7 @@ class Connection(object):
 		"""
 		
 		#compute end:
-		end = begin + len(body)
+		end = begin + len(body) - 1
 		if end > filesize:
 			raise httplib2.ServerNotFoundError
 		

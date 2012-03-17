@@ -114,7 +114,10 @@ class Client(object):
 		data = local_file_fd.read(chunksize)
 		
 		resp, contents = self.connection.send_put_partial(path, data, begin, filesize, headers=extra_headers)
-		return resp, contents
+		if resp.status >= 200 and resp.status < 300:
+			return resp, contents
+		else:
+			raise httplib2.HttpLib2Error([resp, prop])
 	
 	def sendFileChunk(self, path, local_file_path, begin, chunksize, extra_headers={}):
 		""" Send file chunk. This method may be used to resume uploads or
@@ -163,9 +166,8 @@ class Client(object):
 		local_file_fd = open(local_file_path, 'r')
 		local_file_fd.seek(initial_offset, os.SEEK_SET)
 		cursor = initial_offset
-		while cursor < filesize:
+		while cursor < filesize-1:
 			chunksize = min(filesize-cursor, self._maxChunkSize)
-			data = local_file_fd.read(chunksize)
 			resp, contents = self._sendFileChunk(path, local_file_path, cursor, chunksize, filesize, extra_headers)
 			cursor += chunksize
 		
