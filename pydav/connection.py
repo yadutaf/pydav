@@ -9,6 +9,8 @@ from answer import Answer
 # * detection of the server methods
 # * support for (upcomming :) ) SABREdav PATCH method
 
+class MethodNotAvailable(httplib2.HttpLib2Error): pass
+
 class Connection(object):
 	""" Connection object
 	"""
@@ -19,6 +21,9 @@ class Connection(object):
 			:type settings: Dict
 
 		"""
+		if (settings['path'][-1] != "/"):
+			settings['path'] = settings['path'] + "/"
+		
 		# Get network settings
 		self.username = settings['username']
 		self.password = settings['password']
@@ -31,8 +36,11 @@ class Connection(object):
 		# Make an http object for this connection
 		self.httpcon = httplib2.Http()
 		self.httpcon.add_credentials(self.username, self.password)
-
-	def _send_request(self, request_method, path, body='', headers=None):
+		
+		# Detect server capabilities at root
+		self._detect_capabilities()
+	
+	def _send_request(self, request_method, path, body='', headers={}):
 		""" Send a request over http to the webdav server
 
 			:param request_method: HTML / WebDAV request method (such as GET or PUT)
@@ -48,16 +56,47 @@ class Connection(object):
 			:type headers: Dict
 
 		"""
-		if not headers:
-			headers = {}
-		uri = httplib2.urlparse.urljoin(self.host, path)
+		uri = httplib2.urlparse.urljoin(self.host, self.path)
+		uri = httplib2.urlparse.urljoin(uri, path)
 		try:
 			resp, content = self.httpcon.request(uri, request_method,
 												 body=body, headers=headers)
 		except httplib2.ServerNotFoundError:
 			raise
 		return resp, content
+	
+	def _detect_capabilities(self):
+		resp, content = self.send_options()
+		
+		# Get list of supported methods
+		if resp['allow']:
+			self.methods = resp['allow'].split(", ")
+		else:
+			self.methods = []
+		
+		# Try to guess the server type
+		if resp['x-sabre-version']:
+			self.server = "sabre"
+		elif resp['DAV']:
+			self.server = "apache"
+		else:
+			self.server = "generic"
+	
+	def send_options(self):
+		""" Send an OPTION request
+			
+			Read the server capabilities. Not all servers are able to handle
+			partial PUT requests. Some, like SabreDav does via a custom PATCH
+			method (TODO: I'm the contributor of this => actually write it :) )
 
+		"""
+		
+		try:
+			resp, content = self._send_request('OPTIONS', "")
+			return resp, content
+		except httplib2.ServerNotFoundError, err:
+			raise
+		
 	def send_delete(self, path):
 		""" Send a DELETE request
 			
@@ -69,6 +108,7 @@ class Connection(object):
 			:type path: String
 
 		"""
+		if 'DELETE' not in self.methods: raise MethodNotAvailable()
 		try:
 			resp, content = self._send_request('DELETE', path)
 			return resp, content
@@ -85,6 +125,7 @@ class Connection(object):
 			:type headers: Dict
 
 		"""
+		if 'HEAD' not in self.methods: raise MethodNotAvailable()
 		try:
 			resp, content = self._send_request('HEAD', path, headers=headers)
 			return resp
@@ -105,6 +146,7 @@ class Connection(object):
 			:type headers: Dict
 
 		"""
+		if 'GET' not in self.methods: raise MethodNotAvailable()
 		try:
 			resp, content = self._send_request('GET', path, headers=headers)
 			return resp, content
@@ -165,6 +207,7 @@ class Connection(object):
 			:type  headers: Dict
 
 		"""
+		if 'PUT' not in self.methods: raise MethodNotAvailable()
 		try:
 			resp, content = self._send_request('PUT', path, body=body, headers=headers)
 			return resp, content
@@ -184,7 +227,10 @@ class Connection(object):
 			:type extra_headers: Dict
 
 		"""
-		
+		if 'PROPFIND' not in self.methods: 
+			print self.methods
+			print "TOTO"
+			raise MethodNotAvailable()
 		# Build body
 		body = '<?xml version="1.0" encoding="utf-8" ?>'
 		body += '<D:propfind xmlns:D="DAV:">'
@@ -221,6 +267,7 @@ class Connection(object):
 			:type extra_headers: Dict
 
 		"""
+		if 'PROPPATCH' not in self.methods: raise MethodNotAvailable()
 		body  = '<?xml version="1.0" encoding="utf-8" ?>'
 		body += properties.buildProppatch()
 		
@@ -240,6 +287,7 @@ class Connection(object):
 			:type path: String
 
 		"""
+		if 'LOCK' not in self.methods: raise MethodNotAvailable()
 		try:
 			body = '<?xml version="1.0" encoding="utf-8" ?>'
 			body += '<D:lockinfo xmlns:D="DAV:"><D:lockscope><D:exclusive/>'
@@ -263,6 +311,7 @@ class Connection(object):
 			:type lock_token: LockToken
 
 		"""
+		if 'UNLOCK' not in self.methods: raise MethodNotAvailable()
 		try:
 			headers = {'Lock-Token': lock_token.token}
 			body = '<?xml version="1.0" encoding="utf-8" ?>'
@@ -284,6 +333,7 @@ class Connection(object):
 			:type path: String
 
 		"""
+		# No control on availability : For reasons I do not know, it is never advertised...
 		try:
 			resp, content = self._send_request('MKCOL', path)
 			return resp, content
@@ -306,6 +356,7 @@ class Connection(object):
 			:type  maxdepth: Integer
 
 		"""
+		if 'COPY' not in self.methods: raise MethodNotAvailable()
 		try:
 			headers = {}
 			full_destination = httplib2.urlparse.urljoin(self.host, destination)
