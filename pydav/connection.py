@@ -7,7 +7,7 @@ from answer import Answer
 #TODO
 # * detection of the server type
 # * detection of the server methods
-# * support for (upcomming :) ) SABREdav PATCH method
+# * FIXME: some methods are only advertised on existing resource...
 
 class MethodNotAvailable(httplib2.HttpLib2Error): pass
 
@@ -182,15 +182,43 @@ class Connection(object):
 		end = begin + len(body) - 1
 		if end > filesize:
 			raise httplib2.ServerNotFoundError
+			
+		#We have 3 options here:
+		# * the server supports the PATCH method (recommended)
+		# * the server support partial PUT requests
+		# * none of them :/
 		
-		#compute header:
-		headers['Content-Range'] = "bytes "+str(begin)+"-"+str(end)+"/"+str(filesize)
-
-		#send chunk
-		return self.send_put(path, body, headers)
+		if self.server == "sabre": #newer versions *may* support PATCH but none partial PUT
+			headers['X-Update-Range'] = "bytes "+str(begin)+"-"+str(end)
+			return self.send_patch(path, body, headers)
+		else: 
+			headers['Content-Range'] = "bytes "+str(begin)+"-"+str(end)+"/"+str(filesize)
+			return self.send_put(path, body, headers)
 	
+	def send_patch(self, path, body, headers={}):
+		""" This PATCH request will modify existing data files onto a 
+		    (Sabre) webdav server.
+
+			:param path: The path (without host) to the desired file destination
+			:type  path: String
+
+			:param body: Body of the request. This is the data which to send to the destination file
+			:type  body: String
+
+			:param headers: Additional headers for the request may be added here
+			:type  headers: Dict
+
+		"""
+		#if 'PATCH' not in self.methods: raise MethodNotAvailable()
+		headers['Content-Type'] = "application/x-sabredav-partialupdate"
+		try:
+			resp, content = self._send_request('PATCH', path, body=body, headers=headers)
+			return resp, content
+		except httplib2.ServerNotFoundError:
+			raise
+			
 	def send_put(self, path, body, headers={}):
-		""" This PUT request will put data files onto a webdav server.
+		""" This PATCH request will put data files onto a webdav server.
 			However, please note that due to the way in which httplib2 sends
 			files, the whole file has to be read into memory for sending. 
 			This could be problematic for large files.
