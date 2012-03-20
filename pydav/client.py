@@ -168,6 +168,7 @@ class Client(object):
 		cursor = initial_offset
 		while cursor < filesize-1:
 			chunksize = min(filesize-cursor, self._maxChunkSize)
+			print '\tsent '+str(cursor)+' of '+str(filesize)+' bytes\r',
 			resp, contents = self._sendFileChunk(path, local_file_path, cursor, chunksize, filesize, extra_headers)
 			cursor += chunksize
 		

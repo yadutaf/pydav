@@ -73,6 +73,10 @@ class Connection(object):
 			self.methods = resp['allow'].split(", ")
 		else:
 			self.methods = []
+			
+		# Try to detect "sabredav-partialupdate"
+		if resp['dav'] and resp['dav'].find("sabredav-partialupdate") > -1:
+			self.methods.append("PATCH")
 		
 		# Try to guess the server type
 		if resp['x-sabre-version']:
@@ -188,9 +192,12 @@ class Connection(object):
 		# * the server support partial PUT requests
 		# * none of them :/
 		
-		if self.server == "sabre": #newer versions *may* support PATCH but none partial PUT
-			headers['X-Update-Range'] = "bytes "+str(begin)+"-"+str(end)
-			return self.send_patch(path, body, headers)
+		if 'PATCH' in self.methods:
+			if begin == 0:
+				return self.send_put(path, body)
+			else:
+				headers['X-Update-Range'] = "bytes "+str(begin)+"-"+str(end)
+				return self.send_patch(path, body, headers)
 		else: 
 			headers['Content-Range'] = "bytes "+str(begin)+"-"+str(end)+"/"+str(filesize)
 			return self.send_put(path, body, headers)
@@ -209,7 +216,7 @@ class Connection(object):
 			:type  headers: Dict
 
 		"""
-		#if 'PATCH' not in self.methods: raise MethodNotAvailable()
+		if 'PATCH' not in self.methods: raise MethodNotAvailable()
 		headers['Content-Type'] = "application/x-sabredav-partialupdate"
 		try:
 			resp, content = self._send_request('PATCH', path, body=body, headers=headers)
@@ -256,8 +263,6 @@ class Connection(object):
 
 		"""
 		if 'PROPFIND' not in self.methods: 
-			print self.methods
-			print "TOTO"
 			raise MethodNotAvailable()
 		# Build body
 		body = '<?xml version="1.0" encoding="utf-8" ?>'
