@@ -1,6 +1,7 @@
 import httplib2
 from lxml import etree
 import time
+import dateutil.parser
 
 class ResourceProperties(object):
 	""" ResourceProperties Object for storing information about WebDAV resource
@@ -47,12 +48,10 @@ class ResourceProperties(object):
 					self.props[tag] = "collection"
 				else:
 					self.props[tag] = "resource"
+			elif tag == "creationdate" or tag == "getlastmodified":
+				self.props[tag] = dateutil.parser.parse(p.text)
 			else:
 				self.props[tag] = p.text
-	
-	def buildDate(self, tuple_time):
-		tuple_time = time.gmtime(tuple_time)
-		return time.strftime("%Y-%m-%dT%H:%M:%S", tuple_time)
 	
 	def buildProppatch(self):
 		""" Build the "propertyupdate" part of the PROPPATCH command
@@ -63,10 +62,13 @@ class ResourceProperties(object):
 			xml += '<D:set><D:prop>'
 			for name in self.edits:
 				xml += '<S:'+name+'>'
-				xml += self.props[name]
+				if name == "getlastmodified":
+					xml += str(self.props[name])
+				else:
+					xml += self.props[name]
 				xml += '</S:'+name+'>'
 			xml += '</D:prop></D:set>'
-		#commit editions
+		#commit deletions
 		if len(self.dels):
 			xml += '<D:remove><D:prop>'
 			for name in self.dels:
@@ -88,6 +90,7 @@ class ResourceProperties(object):
 	def __setitem__(self, name, value):
 		if name == "resourcetype":     return #this is a non-sense to change the resource type !
 		if name == "getcontentlength": return #this is a non-sense to change the content length !
+		if name == "creationdate":     return #it is forbidden to change this header !
 
 		self.props[name] = value
 		if not self.edits.append(name):#record edition

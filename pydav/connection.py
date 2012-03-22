@@ -196,10 +196,10 @@ class Connection(object):
 			if begin == 0:
 				return self.send_put(path, body)
 			else:
-				headers['X-Update-Range'] = "bytes "+str(begin)+"-"+str(end)
+				headers['X-Update-Range'] = "bytes="+str(begin)+"-"+str(end)
 				return self.send_patch(path, body, headers)
 		else: 
-			headers['Content-Range'] = "bytes "+str(begin)+"-"+str(end)+"/"+str(filesize)
+			headers['Content-Range'] = "bytes="+str(begin)+"-"+str(end)+"/"+str(filesize)
 			return self.send_put(path, body, headers)
 	
 	def send_patch(self, path, body, headers={}):
